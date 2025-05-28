@@ -1,3 +1,11 @@
+
+# DiffInt: A Diffusion Model for Structure-Based Drug Design with Explicit Hydrogen Bond Interaction Guidance
+
+This repository provides the source code and pretrained models for the [paper](https://pubs.acs.org/doi/10.1021/acs.jcim.4c01385).
+
+DiffInt is a diffusion-based generative model that explicitly incorporates hydrogen bond interactions for structure-based drug design. It introduces interaction particles to guide ligand generation within protein binding pockets.
+
+
 ## Dependencies
 
 ### Cuda environment
@@ -94,7 +102,7 @@ Generated molecules used in the paper are ```example/DiffInt_generated_molecules
 python test_single.py --checkpoint checkpoint_file --outdir /out/directory/path/ --pdb /pdb/file/path/ --sdf /sdf/file/path/
 ```
 
-Or you can use Google Colabratory
+Or you can use Google Colabratory (This notebook has been confirmed to work on May 28, 2025.)
 
 ```bash
 .
