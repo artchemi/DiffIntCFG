@@ -1,111 +1,31 @@
-
 # DiffInt: A Diffusion Model for Structure-Based Drug Design with Explicit Hydrogen Bond Interaction Guidance
 
-This repository provides the source code and pretrained models for the [paper](https://pubs.acs.org/doi/10.1021/acs.jcim.4c01385).
+Оригинальная модель описана в [статье](https://pubs.acs.org/doi/10.1021/acs.jcim.4c01385). 
 
-DiffInt is a diffusion-based generative model that explicitly incorporates hydrogen bond interactions for structure-based drug design. It introduces interaction particles to guide ligand generation within protein binding pockets.
+## 🛠 Зависимости
 
+**1. Установка окружения.**
 
-## Dependencies
-
-### Cuda environment
-| Software     | Version |
-|--------------|---------|
-| CUDA         | 11.8    |
-| cudnn        | 8.9.7   |
-
-### conda environment
 ```bash
-conda env create -n Int-env -f environment.yml
+mamba env create -n Int-env-main -f environment_cfg.yml
 ```
 
-| Software          | Version   |
-|-------------------|-----------|
-| Python            | 3.10.4    |
-| numpy             | 1.22.3    |
-| PyTorch           | 2.0.1     |
-| PyTorch cuda      | 11.8      |
-| Torchvision       | 0.15.2    |
-| Torchaudio        | 2.0.2     |
-| PyTorch Scatter   | 2.1.1     |
-| PyTorch Lightning | 1.7.4     |
-| RDKit             | 2022.03.2 |
-| WandB             | 0.13.1    |
-| BioPython         | 1.79      |
-| imageio           | 2.21.2    |
-| SciPy             | 1.7.3     |
-| OpenBabel         | 3.1.1     |
-| ODDT              | 0.7       |
+Если будут конфликты с зависимостями при установке окружения из `environment_cfg.yml`, то можно установить базовое окружение из `environment.yml` и установить библиотеки в ручном режиме.
 
-
-### Data download
-Download the training, validation and test datasets: [Data](https://drive.google.com/file/d/1RwDXBRVLRcEjSNHTw1JG6TpNgNUIogX2/view?usp=sharing)
+**2. Датасет с [Google Drive](https://drive.google.com/file/d/1RwDXBRVLRcEjSNHTw1JG6TpNgNUIogX2/view).**
 
 ```bash
-tar xvzf DiffInt_crossdock_data.tar.gz
+cd data/
+tar xvzf DiffInt_crossdock_data.tar.gz   
 ```
 
-### Data construction by yourself
-(You don't need to construct data by yourself.)
-Download and extract the dataset as described by the authors of [Pocket2Mol](https://github.com/pengxingang/Pocket2Mol/tree/main/data).  
-Download the dataset archive `crossdocked_pocket10.tar.gz` and the split file `split_by_name.pt` to `data` directory.
-```bash
-.
-├── data
-│   ├── DiffInt_crossdock_data.tar.gz
-│   └── split_by_name.pt
-```
-Extract the TAR archive
-```bash
-tar -xzvf crossdocked_pocket10.tar.gz
-```
-
-data preparation step 1
-```bash
-python process_crossdock.py /data/directory/path/ --outdir /output/directory/path/
-```
-For example
-```bash
-python process_crossdock.py data/ --outdir data/crossdocked_ca/
-```
-
-data preparation step 2: add hydrogen bonds information
-```bash
-python hbond_double.py --data_dir /step_1/directory/path/ --out_dir /step_2/directory/path/ --pdb_dir /pdb_data/directory/path/
-```
-For example
-```bash
-python hbond_double.py --data_dir data/crossdock_ca/ --out_dir data/crossdocked_ca_Int/ --pdb_dir data/crossdocked_pocket10/
-```
-
-### Training
-```bash
-python -u train.py --config config/DiffInt_ca_double.yml
-```
-
-### Molecule generation
-Generation of 100 ligand molecules for 100 protein pockets.
+**3. Настройка конфига и запуск обучения.** `DiffInt_ca_double_src.yml` - конфиг из начального репозитория. `DiffInt_ca_double.yml` - конфиг для запуска на локальной машине. Запуск обучения:
 
 ```bash
-python test_npz.py --checkpoint checkpoint_file --test_dir /data/directory/path/ --outdir /out/directory/path/
-```
-For example
-```bash
-python test_npz.py --checkpoint checkpoints/best_model.ckpt --test_dir DiffInt_crossdock_data/ --outdir sample
+python train.py --config configs/DiffInt_ca_double.yml
 ```
 
-Generated molecules used in the paper are ```example/DiffInt_generated_molecules.tar.gz ```
-
-
-### Generate 100 ligand molecules for one pocket
+Продолжение обучение с определенного чекпоинта:
 ```bash
-python test_single.py --checkpoint checkpoint_file --outdir /out/directory/path/ --pdb /pdb/file/path/ --sdf /sdf/file/path/
-```
-
-Or you can use Google Colabratory (This notebook has been confirmed to work on May 28, 2025.)
-
-```bash
-.
-├── colab
-│   └── DiffInt_generate.ipynb
+python train.py --config configs/DiffInt_ca_double.yml --resume logs/DiffInt_training/checkpoints/last.ckpt
 ```
