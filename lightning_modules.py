@@ -54,12 +54,16 @@ class LigandPocketDDPM(pl.LightningModule):
             node_histogram,
             alpha_param,
             alpha_power,
+            p_unconditioned=0.0,    # По умолчанию не будет пустых условий 
             pocket_representation='CA',
-            virtual_nodes=False
+            virtual_nodes=False,
     ):
         super(LigandPocketDDPM, self).__init__()
         self.save_hyperparameters()
 
+        self.p_unconditioned = p_unconditioned
+
+        #! Выбор модели
         ddpm_models = {'joint': EnVariationalDiffusion,
                        'pocket_conditioning': ConditionalDDPM,
                        'pocket_conditioning_simple': SimpleConditionalDDPM}
@@ -254,7 +258,7 @@ class LigandPocketDDPM(pl.LightningModule):
         delta_log_px, error_t_lig, error_t_pocket, SNR_weight, \
         loss_0_x_ligand, loss_0_x_pocket, loss_0_h, neg_log_const_0, \
         kl_prior, log_pN, t_int, xh_lig_hat, alpha_t, info = \
-            self.ddpm(ligand, pocket, return_info=True)
+            self.ddpm(ligand, pocket, return_info=True)    #! Передается pocket как условие
 
         if self.loss_type == 'l2' and self.training:
             actual_ligand_size = ligand['size'] - ligand['num_virtual_atoms'] if self.virtual_nodes else ligand['size']
