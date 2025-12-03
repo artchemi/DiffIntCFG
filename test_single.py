@@ -72,9 +72,10 @@ def ligand_generation(test_file, checkpoint, outdir=None, batch_size=120, n_samp
     while len(valid_molecules) < n_samples:
         iter +=1
 
+        #! Сэмплирование молекул
         if type(model.ddpm) == ConditionalDDPM: 
             print(type(model.ddpm))
-            xh_lig, xh_pocket, lig_mask, pocket_mask = model.ddpm.sample_given_pocket(pocket, num_nodes_lig,timesteps=None)
+            xh_lig, xh_pocket, lig_mask, pocket_mask = model.ddpm.sample_given_pocket(pocket, num_nodes_lig, timesteps=None)    #! Добавить сюда безусловную генерацию
 
         pocket_com_after = scatter_mean(xh_pocket[:, :x_dims], pocket_mask, dim=0)
         xh_pocket[:, :x_dims] += \
@@ -225,7 +226,7 @@ def main():
 
     tmp1 = process_data(sdf_file=args.sdf, pdb_file=args.pdb)
     tmp2 = process_data_h(sdf_file=args.sdf, pdb_file=args.pdb,npz_name=tmp1)   
-    ligand_generation(outdir=args.outdir, test_file=tmp2, checkpoint=args.checkpoint, save=True)
+    ligand_generation(outdir=args.outdir, n_samples=args.n_samples, test_file=tmp2, checkpoint=args.checkpoint, save=True)
 
 
 if __name__ == "__main__":
