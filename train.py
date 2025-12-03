@@ -89,7 +89,9 @@ if __name__ == "__main__":
         pocket_representation=args.pocket_representation,
         virtual_nodes=args.virtual_nodes,
         alpha_param=args.alpha_param,
-        alpha_power=args.alpha_power
+        alpha_power=args.alpha_power,
+        # guidance_scale=args.guidance_scale,
+        p_unconditioned=args.p_unconditioned,
     )
 
     logger = pl.loggers.WandbLogger(
