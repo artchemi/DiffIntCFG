@@ -153,6 +153,11 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+data/
+__pycache__/
+equivariant_diffusion/__pycache__/
+logs/
+README_src.md
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
