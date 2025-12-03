@@ -1,21 +1,24 @@
 run_name: 'DiffInt_training'
-logdir: '/path/to/logdir'
+logdir: 'logs/'
 wandb_params:
   mode: 'online'  # disabled, offline, online
-  entity: 'my_wandb_ID'
+  entity: 'artchemi'    #! Не забыть удалить
 dataset: 'crossdock_h'
-datadir: '/path/to/datdir'
+datadir: 'data/DiffInt_crossdock_data'
 enable_progress_bar: True
 num_sanity_val_steps: 0
 
+p_unconditioned: 0.1    # Вероятность подачи пустого кармана в обучении
+guidance_scale: 3.0     # Коэффициент guidance при семплинге
+
 mode: 'pocket_conditioning'  
 pocket_representation: 'CA'  
-batch_size: 64
-lr: 1.0e-3
+batch_size: 16
+lr: 1.0e-4
 noise_factor: 1.0
 n_epochs: 1000
 num_workers: 20
-gpus: 4
+gpus: 1
 clip_grad: True
 augment_rotation: False
 augment_noise: 0
@@ -60,6 +63,6 @@ visualize_chain_epoch: 50
 eval_params:
   n_eval_samples: 100
   eval_batch_size: 100
-  smiles_file: '/path/to/datadir/train_smiles.npy'
+  smiles_file: 'data/DiffInt_crossdock_data/train_smiles.npy'
   n_visualize_samples: 5
   keep_frames: 100
