@@ -2,6 +2,8 @@ import argparse
 from argparse import Namespace
 from pathlib import Path
 import warnings
+import os
+import random
 
 import torch
 import pytorch_lightning as pl
@@ -42,9 +44,13 @@ def merge_configs(config, resume_config):
 # Training
 # ______________________________________________________________________________
 if __name__ == "__main__":
+    os.makedirs('logs/', exist_ok=True)
     p = argparse.ArgumentParser()
     p.add_argument('--config', type=str, required=True)
     p.add_argument('--resume', type=str, default=None)
+    p.add_argument('--seed', type=int, default=42)
+    p.add_argument('--early_stopping', action='store_true', help='Enable early stopping')
+    p.add_argument('--early_stop_patience', type=int, default=10, help='Patience (in epochs) for early stopping')
     args = p.parse_args()
 
     with open(args.config, 'r') as f:
@@ -61,6 +67,25 @@ if __name__ == "__main__":
         config = merge_configs(config, resume_config)
 
     args = merge_args_and_yaml(args, config)
+
+    # ---------------------- Seed fixation ----------------------
+    seed = int(args.seed) if getattr(args, 'seed', None) is not None else 42
+
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    try:
+        torch.use_deterministic_algorithms(True)
+    except Exception:
+        pass
+
+    pl.seed_everything(seed, workers=True)
+    # -----------------------------------------------------------
 
     out_dir = Path(args.logdir, args.run_name)
     histogram_file = Path(args.datadir, 'size_distribution.npy')
@@ -94,15 +119,11 @@ if __name__ == "__main__":
         p_unconditioned=args.p_unconditioned,
     )
 
-    logger = pl.loggers.WandbLogger(
+    logger = pl.loggers.MLFlowLogger(
         save_dir=args.logdir,
-        project='DiffInt_training',
-        group=args.dataset,
-        name=args.run_name,
-        id=args.run_name,
-        resume='must' if args.resume is not None else False,
-        entity=args.wandb_params.entity,
-        mode=args.wandb_params.mode,
+        experiment_name='DiffInt_training',
+        run_name=args.run_name,
+        tags={'dataset': args.dataset},
     )
 
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
@@ -114,10 +135,20 @@ if __name__ == "__main__":
         mode="min",
     )
 
+    callbacks = [checkpoint_callback]
+    if getattr(args, 'early_stopping', False):
+        early_stop_cb = pl.callbacks.EarlyStopping(
+            monitor='loss/val',
+            patience=args.early_stop_patience,
+            mode='min',
+            verbose=True,
+        )
+        callbacks.append(early_stop_cb)
+
     trainer = pl.Trainer(
         max_epochs=args.n_epochs,
         logger=logger,
-        callbacks=[checkpoint_callback],
+        callbacks=callbacks,
         enable_progress_bar=args.enable_progress_bar,
         num_sanity_val_steps=args.num_sanity_val_steps,
         accelerator='gpu', devices=args.gpus,
