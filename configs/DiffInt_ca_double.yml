@@ -1,8 +1,5 @@
-run_name: 'DiffInt_training'
+run_name: 'DiffInt_training_src'
 logdir: 'logs/'
-wandb_params:
-  mode: 'online'  # disabled, offline, online
-  entity: 'artchemi'    #! Не забыть удалить
 dataset: 'crossdock_h'
 datadir: 'data/DiffInt_crossdock_data'
 enable_progress_bar: True
@@ -16,8 +13,8 @@ pocket_representation: 'CA'
 batch_size: 16
 lr: 1.0e-4
 noise_factor: 1.0
-n_epochs: 1000
-num_workers: 20
+n_epochs: 500
+num_workers: 10
 gpus: 1
 clip_grad: True
 augment_rotation: False
@@ -57,9 +54,9 @@ diffusion_params:
   diffusion_loss_type: 'l2'  # vlb, l2
   normalize_factors: [1, 1]  #[10, 4]  # [x, h]
 
-eval_epochs: 50
-visualize_sample_epoch: 50
-visualize_chain_epoch: 50
+eval_epochs: 10
+visualize_sample_epoch: 10
+visualize_chain_epoch: 10
 eval_params:
   n_eval_samples: 100
   eval_batch_size: 100

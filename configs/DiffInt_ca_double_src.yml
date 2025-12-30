@@ -1,8 +1,5 @@
 run_name: 'DiffInt_training'
 logdir: '/path/to/logdir'
-wandb_params:
-  mode: 'online'  # disabled, offline, online
-  entity: 'my_wandb_ID'
 dataset: 'crossdock_h'
 datadir: '/path/to/datdir'
 enable_progress_bar: True
