@@ -9,7 +9,6 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
-import wandb
 from torch_scatter import scatter_add, scatter_mean
 from Bio.PDB import PDBParser
 from Bio.PDB.Polypeptide import three_to_one
@@ -255,6 +254,8 @@ class LigandPocketDDPM(pl.LightningModule):
 
         # Note: \mathcal{L} terms in the paper represent log-likelihoods while
         # our loss terms are a negative(!) log-likelihoods
+
+        #! Написать некоторую вероятность, при которой pocket будет тензором нулей
         delta_log_px, error_t_lig, error_t_pocket, SNR_weight, \
         loss_0_x_ligand, loss_0_x_pocket, loss_0_h, neg_log_const_0, \
         kl_prior, log_pN, t_int, xh_lig_hat, alpha_t, info = \
@@ -790,7 +791,7 @@ class LigandPocketDDPM(pl.LightningModule):
         outdir = Path(self.outdir, f'epoch_{self.current_epoch}', 'chain')
         save_xyz_file(str(outdir), one_hot_flat, x_flat, self.lig_type_decoder,
                       name='/chain', batch_mask=mask_flat)
-        visualize_chain(str(outdir), self.dataset_info, wandb=wandb)
+        visualize_chain(str(outdir), self.dataset_info, wandb=None)
 
     def sample_chain_and_save_given_pocket(self, keep_frames):
         n_samples = 1
@@ -851,7 +852,7 @@ class LigandPocketDDPM(pl.LightningModule):
         outdir = Path(self.outdir, f'epoch_{self.current_epoch}', 'chain')
         save_xyz_file(str(outdir), one_hot_flat, x_flat, self.lig_type_decoder,
                       name='/chain', batch_mask=mask_flat)
-        visualize_chain(str(outdir), self.dataset_info, wandb=wandb)
+        visualize_chain(str(outdir), self.dataset_info, wandb=None)
 
     def prepare_pocket(self, biopython_residues, repeats=1):
 
