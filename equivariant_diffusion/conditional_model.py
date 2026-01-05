@@ -111,14 +111,25 @@ class ConditionalDDPM(EnVariationalDiffusion):
         return log_p_x_given_z0_without_constants_ligand, log_ph_given_z0_ligand
 
     def sample_p_xh_given_z0(self, z0_lig, xh0_pocket, lig_mask, pocket_mask,
-                             batch_size, fix_noise=False):
+                             batch_size, fix_noise=False, guidance_scale=1.0,
+                             xh0_pocket_uncond=None):
         """Samples x ~ p(x|z0)."""
         t_zeros = torch.zeros(size=(batch_size, 1), device=z0_lig.device)
         gamma_0 = self.gamma(t_zeros)
         # Computes sqrt(sigma_0^2 / alpha_0^2)
         sigma_x = self.SNR(-0.5 * gamma_0)
-        net_out_lig, _ = self.dynamics(
-            z0_lig, xh0_pocket, t_zeros, lig_mask, pocket_mask)
+        # Optionally perform classifier-free guidance: run dynamics twice
+        # (unconditional and conditional) and combine predictions.
+        if xh0_pocket_uncond is not None and guidance_scale != 1.0:    #! CFG
+            net_out_lig_cond, _ = self.dynamics(
+                z0_lig, xh0_pocket, t_zeros, lig_mask, pocket_mask)
+            net_out_lig_uncond, _ = self.dynamics(
+                z0_lig, xh0_pocket_uncond, t_zeros, lig_mask, pocket_mask)
+            net_out_lig = net_out_lig_uncond + guidance_scale * (
+                net_out_lig_cond - net_out_lig_uncond)
+        else:
+            net_out_lig, _ = self.dynamics(
+                z0_lig, xh0_pocket, t_zeros, lig_mask, pocket_mask)
 
         # Compute mu for p(zs | zt).
         mu_x_lig = self.compute_x_pred(net_out_lig, z0_lig, gamma_0, lig_mask)
@@ -379,7 +390,8 @@ class ConditionalDDPM(EnVariationalDiffusion):
         return zt_lig, xh0_pocket
 
     def sample_p_zs_given_zt(self, s, t, zt_lig, xh0_pocket, ligand_mask,
-                             pocket_mask, fix_noise=False):
+                             pocket_mask, fix_noise=False, guidance_scale=1.0,
+                             xh0_pocket_uncond=None):
         """Samples from zs ~ p(zs | zt). Only used during sampling."""
         gamma_s = self.gamma(s)
         gamma_t = self.gamma(t)
@@ -390,9 +402,18 @@ class ConditionalDDPM(EnVariationalDiffusion):
         sigma_s = self.sigma(gamma_s, target_tensor=zt_lig)
         sigma_t = self.sigma(gamma_t, target_tensor=zt_lig)
 
-        # Neural net prediction.
-        eps_t_lig, _ = self.dynamics(
-            zt_lig, xh0_pocket, t, ligand_mask, pocket_mask)
+        # Neural net prediction. Optionally compute unconditional prediction
+        # for classifier-free guidance and combine.
+        if xh0_pocket_uncond is not None and guidance_scale != 1.0:
+            eps_t_lig_cond, _ = self.dynamics(
+                zt_lig, xh0_pocket, t, ligand_mask, pocket_mask)
+            eps_t_lig_uncond, _ = self.dynamics(
+                zt_lig, xh0_pocket_uncond, t, ligand_mask, pocket_mask)
+            eps_t_lig = eps_t_lig_uncond + guidance_scale * (
+                eps_t_lig_cond - eps_t_lig_uncond)
+        else:
+            eps_t_lig, _ = self.dynamics(
+                zt_lig, xh0_pocket, t, ligand_mask, pocket_mask)
 
         # Compute mu for p(zs | zt).
         # Note: mu_{t->s} = 1 / alpha_{t|s} z_t - sigma_{t|s}^2 / sigma_t / alpha_{t|s} epsilon
@@ -426,7 +447,7 @@ class ConditionalDDPM(EnVariationalDiffusion):
 
     @torch.no_grad()
     def sample_given_pocket(self, pocket, num_nodes_lig, return_frames=1,
-                            timesteps=None):
+                            timesteps=None, guidance_scale=1.0):
         """
         Draw samples from the generative model. Optionally, return intermediate
         states for visualization purposes.
@@ -442,6 +463,12 @@ class ConditionalDDPM(EnVariationalDiffusion):
         # xh0_pocket is the original pocket while xh_pocket might be a
         # translated version of it
         xh0_pocket = torch.cat([pocket['x'], pocket['one_hot']], dim=1)
+        # Prepare an unconditional pocket representation (zeros) for
+        # classifier-free guidance. Keep same shape and device.
+        if guidance_scale != 1.0:
+            xh0_pocket_uncond = torch.zeros_like(xh0_pocket)
+        else:
+            xh0_pocket_uncond = None
 
         lig_mask = utils.num_nodes_to_batch_mask(
             n_samples, num_nodes_lig, device)
@@ -471,7 +498,8 @@ class ConditionalDDPM(EnVariationalDiffusion):
             t_array = t_array / timesteps
 
             z_lig, xh_pocket = self.sample_p_zs_given_zt(
-                s_array, t_array, z_lig, xh_pocket, lig_mask, pocket['mask'])
+                s_array, t_array, z_lig, xh_pocket, lig_mask, pocket['mask'],
+                guidance_scale=guidance_scale, xh0_pocket_uncond=xh0_pocket_uncond)
 
             # save frame
             if (s * return_frames) % timesteps == 0:
@@ -481,7 +509,8 @@ class ConditionalDDPM(EnVariationalDiffusion):
 
         # Finally sample p(x, h | z_0).
         x_lig, h_lig, x_pocket, h_pocket = self.sample_p_xh_given_z0(
-            z_lig, xh_pocket, lig_mask, pocket['mask'], n_samples)
+            z_lig, xh_pocket, lig_mask, pocket['mask'], n_samples,
+            guidance_scale=guidance_scale, xh0_pocket_uncond=xh0_pocket_uncond)
 
         self.assert_mean_zero_with_mask(x_lig, lig_mask)
 

@@ -255,7 +255,23 @@ class LigandPocketDDPM(pl.LightningModule):
         # Note: \mathcal{L} terms in the paper represent log-likelihoods while
         # our loss terms are a negative(!) log-likelihoods
 
-        #! Написать некоторую вероятность, при которой pocket будет тензором нулей
+        # Classifier-free guidance training: with probability `self.p_unconditioned`
+        # replace the pocket conditioning by a zero tensor (per sample).
+        if self.training and getattr(self, 'p_unconditioned', 0.0) > 0.0:
+            p = float(self.p_unconditioned)
+            batch_n = len(pocket['size'])
+            # decide which samples in the batch are unconditioned
+            drop_samples = (torch.rand(batch_n, device=self.device) < p)
+            if drop_samples.any():
+                # create a shallow copy of pocket tensors to avoid modifying input
+                pocket_cf = {k: v.clone() for k, v in pocket.items()}
+                # mask nodes that belong to dropped samples
+                node_drop_mask = drop_samples[pocket_cf['mask']].bool()
+                if node_drop_mask.any():
+                    pocket_cf['x'][node_drop_mask] = 0.0
+                    pocket_cf['one_hot'][node_drop_mask] = 0.0
+                pocket = pocket_cf
+
         delta_log_px, error_t_lig, error_t_pocket, SNR_weight, \
         loss_0_x_ligand, loss_0_x_pocket, loss_0_h, neg_log_const_0, \
         kl_prior, log_pN, t_int, xh_lig_hat, alpha_t, info = \

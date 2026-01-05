@@ -1,19 +1,16 @@
-run_name: 'DiffInt_training_src'
+run_name: 'DiffInt_training_CFG'
 logdir: 'logs/'
 dataset: 'crossdock_h'
 datadir: 'data/DiffInt_crossdock_data'
 enable_progress_bar: True
 num_sanity_val_steps: 0
 
-p_unconditioned: 0.1    # Вероятность подачи пустого кармана в обучении
-guidance_scale: 3.0     # Коэффициент guidance при семплинге
-
 mode: 'pocket_conditioning'  
 pocket_representation: 'CA'  
 batch_size: 16
-lr: 1.0e-4
+lr: 1.0e-5
 noise_factor: 1.0
-n_epochs: 500
+n_epochs: 100
 num_workers: 10
 gpus: 1
 clip_grad: True

@@ -14,6 +14,12 @@ from lightning_modules import LigandPocketDDPM
 
 
 def merge_args_and_yaml(args, config_dict):
+    """
+    Перезаписывает аргументы командной строки значениями из конфигурационного файла.
+    
+    :param args: Description
+    :param config_dict: Description
+    """
     arg_dict = args.__dict__
     for key, value in config_dict.items():
         if key in arg_dict:
@@ -24,7 +30,6 @@ def merge_args_and_yaml(args, config_dict):
             arg_dict[key] = Namespace(**value)
         else:
             arg_dict[key] = value
-
     return args
 
 
@@ -49,6 +54,8 @@ if __name__ == "__main__":
     p.add_argument('--config', type=str, required=True)
     p.add_argument('--resume', type=str, default=None)
     p.add_argument('--seed', type=int, default=42)
+    p.add_argument('--p_unconditioned', type=float, default=0.1,
+                   help='Probability to drop conditioning (classifier-free guidance) during training')
     p.add_argument('--early_stopping', action='store_true', help='Enable early stopping')
     p.add_argument('--early_stop_patience', type=int, default=10, help='Patience (in epochs) for early stopping')
     args = p.parse_args()
@@ -60,11 +67,11 @@ if __name__ == "__main__":
 
     # Get main config
     ckpt_path = None if args.resume is None else Path(args.resume)
-    if args.resume is not None:
-        resume_config = torch.load(
-            ckpt_path, map_location=torch.device('cpu'))['hyper_parameters']
+    # if args.resume is not None:
+    #     resume_config = torch.load(
+    #         ckpt_path, map_location=torch.device('cpu'))['hyper_parameters']
 
-        config = merge_configs(config, resume_config)
+    #     config = merge_configs(config, resume_config)
 
     args = merge_args_and_yaml(args, config)
 
@@ -156,4 +163,9 @@ if __name__ == "__main__":
         #strategy=('ddp' if args.gpus > 1 else None)
     )
 
-    trainer.fit(model=pl_module, ckpt_path=ckpt_path)
+    if ckpt_path is not None:
+        ckpt = torch.load(ckpt_path, map_location="cpu")
+        pl_module.load_state_dict(ckpt["state_dict"], strict=True)
+        
+    trainer.fit(model=pl_module)
+    # trainer.fit(model=pl_module, ckpt_path=ckpt_path)

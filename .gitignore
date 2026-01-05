@@ -158,6 +158,7 @@ __pycache__/
 equivariant_diffusion/__pycache__/
 logs/
 README_src.md
+outputs/
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

@@ -2,6 +2,7 @@ import argparse
 import warnings
 from pathlib import Path
 from time import time
+import random
 import numpy as np
 import os
 
@@ -21,12 +22,17 @@ from process_crossdock import process_ligand_and_pocket
 from hbond_double import hbond_create
 
 
-def ligand_generation(test_file, checkpoint, outdir=None, batch_size=120, n_samples=100, relax=True, all_frags=True, save=True):
+
+
+def ligand_generation(test_file, checkpoint, outdir=None, batch_size=120, n_samples=100, relax=True, all_frags=True, save=True, guidance_scale=1.0, p_unconditioned=None):
     #t_pocket_start = time()      
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     x_dims = 3
     model = LigandPocketDDPM.load_from_checkpoint(checkpoint, map_location=device)
     model = model.to(device)
+    # optionally override stored probability for unconditional conditioning
+    if p_unconditioned is not None:
+        model.p_unconditioned = float(p_unconditioned)
 
     test_dataset = ProcessedLigandPocketDataset(test_file, center=False)
 
@@ -75,7 +81,8 @@ def ligand_generation(test_file, checkpoint, outdir=None, batch_size=120, n_samp
         #! Сэмплирование молекул
         if type(model.ddpm) == ConditionalDDPM: 
             print(type(model.ddpm))
-            xh_lig, xh_pocket, lig_mask, pocket_mask = model.ddpm.sample_given_pocket(pocket, num_nodes_lig, timesteps=None)    #! Добавить сюда безусловную генерацию
+            xh_lig, xh_pocket, lig_mask, pocket_mask = model.ddpm.sample_given_pocket(
+                pocket, num_nodes_lig, timesteps=None, guidance_scale=guidance_scale)
 
         pocket_com_after = scatter_mean(xh_pocket[:, :x_dims], pocket_mask, dim=0)
         xh_pocket[:, :x_dims] += \
@@ -222,11 +229,32 @@ def main():
     parser.add_argument('--n_nodes_bias', type=int, default=0)
     parser.add_argument('--n_nodes_min', type=int, default=0)
     parser.add_argument('--skip_existing', action='store_true',default=True)
+    parser.add_argument('--guidance_scale', type=float, default=1.0,
+                        help='Classifier-free guidance scale (1.0 = disabled)')
+    parser.add_argument('--p_unconditioned', type=float, default=None,
+                        help='If set, override model.p_unconditioned')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='Random seed for reproducibility')
     args = parser.parse_args()
+
+    # Fix RNG seeds for reproducibility when requested
+    if args.seed is not None:
+        random.seed(args.seed)
+        np.random.seed(int(args.seed))
+        torch.manual_seed(int(args.seed))
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(int(args.seed))
+        # make CuDNN deterministic where possible
+        try:
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+        except Exception:
+            pass
 
     tmp1 = process_data(sdf_file=args.sdf, pdb_file=args.pdb)
     tmp2 = process_data_h(sdf_file=args.sdf, pdb_file=args.pdb,npz_name=tmp1)   
-    ligand_generation(outdir=args.outdir, n_samples=args.n_samples, test_file=tmp2, checkpoint=args.checkpoint, save=True)
+    ligands_gen = ligand_generation(outdir=args.outdir, n_samples=args.n_samples, test_file=tmp2, checkpoint=args.checkpoint, 
+                                    save=True,guidance_scale=args.guidance_scale, p_unconditioned=args.p_unconditioned)
 
 
 if __name__ == "__main__":
